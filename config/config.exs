@@ -1,17 +1,9 @@
-# This file is responsible for configuring your application
-# and its dependencies with the aid of the Mix.Config module.
 use Mix.Config
-
-# This configuration is loaded before any dependency and is restricted
-# to this project. If another project depends on this project, this
-# file won't be loaded nor affect the parent project. For this reason,
-# if you want to provide default values for your application for
-# 3rd-party users, it should be done in your "mix.exs" file.
 
 # You can configure for your application as:
 #
 # copy from redix.ex
-#`connection_opts` is a list of options used to manage the connection. These
+# `connection_opts` is a list of options used to manage the connection. These
 #  are the Redix-specific options that can be used:
 
 #   * `:socket_opts` - (list of options) this option specifies a list of options
@@ -26,34 +18,14 @@ use Mix.Config
 #      will exit with the original error's reason. If the value is nil, there's
 #      no limit to the reconnection attempts that can be made. Defaults to nil.
 
-#     config :redix_cluster, key: :value
 config :redix_cluster,
-  cluster_nodes: [%{host: '10.1.2.7', port: 7000},
-                  %{host: '10.1.2.6', port: 7000},
-                  %{host: '10.1.2.5', port: 7000}
-                 ],
+  cluster_nodes: [
+    %{host: "staging.lygt2n.clustercfg.use1.cache.amazonaws.com", port: 6379}
+  ],
   pool_size: 5,
   pool_max_overflow: 0,
 
-# connection_opts
+  # connection_opts
   socket_opts: [],
   backoff: 2000,
   max_reconnection_attempts: nil
-
-#
-# And access this configuration in your application as:
-#
-#     Application.get_env(:redix_cluster, :key)
-#
-# Or configure a 3rd-party app:
-#
-#     config :logger, level: :info
-#
-
-# It is also possible to import configuration files, relative to this
-# directory. For example, you can emulate configuration per environment
-# by uncommenting the line below and defining dev.exs, test.exs and such.
-# Configuration from the imported file will override the ones defined
-# here (which is why it is important to import them last).
-#
- import_config "#{Mix.env}.exs"
