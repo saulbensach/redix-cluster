@@ -3,7 +3,7 @@ defmodule RedixCluster.Mixfile do
 
   def project do
     [
-      app: :redix_cluster,
+      app: :redix_cluster_remastered,
       version: "1.0.0",
       elixir: "~> 1.6",
       build_embedded: Mix.env() == :prod,
@@ -41,13 +41,13 @@ defmodule RedixCluster.Mixfile do
 
   defp package do
     [
-      organization: "spotim",
       description:
         "A client for managing the connection to a Redis Cluster using Redix as a client.",
       # These are the default files included in the package
       files: ["lib", "mix.exs", "README.md"],
       maintainers: ["Coby Benveniste"],
-      links: %{"GitHub" => "https://github.com/SpotIM/redix-cluster"}
+      links: %{"GitHub" => "https://github.com/SpotIM/redix-cluster"},
+      licenses: ["MIT License"]
     ]
   end
 
