@@ -29,12 +29,13 @@ defmodule RedixCluster.Monitor do
     Application.get_env(:redix_cluster_remastered, key, default)
   end
 
-  @spec connect(term) :: :ok | {:error, :connect_to_empty_nodes}
-  def connect([]), do: {:error, :connect_to_empty_nodes}
-  def connect(cluster_nodes), do: GenServer.call(__MODULE__, {:connect, cluster_nodes})
+  @spec connect(conn, term) :: :ok | {:error, :connect_to_empty_nodes}
+  def connect(_conn_name, []), do: {:error, :connect_to_empty_nodes}
+  def connect(conn_name, cluster_nodes), do: GenServer.call(conn_name, {:connect, cluster_nodes})
 
-  @spec refresh_mapping(integer) :: :ok | {:ignore, String.t()}
-  def refresh_mapping(version), do: GenServer.call(__MODULE__, {:reload_slots_map, version})
+  @spec refresh_mapping(conn, integer) :: :ok | {:ignore, String.t()}
+  def refresh_mapping(conn_name, version),
+    do: GenServer.call(conn_name, {:reload_slots_map, version})
 
   @spec get_slot_cache(conn) ::
           {:cluster, [binary], [integer], integer} | {:not_cluster, integer, atom}

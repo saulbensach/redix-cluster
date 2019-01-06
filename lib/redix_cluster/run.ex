@@ -18,10 +18,10 @@ defmodule RedixCluster.Run do
         |> parse_key_from_command
         |> key_to_slot_hash
         |> get_pool_by_slot(slots_maps, slots, version)
-        |> query_redis_pool(command, :command, opts)
+        |> query_redis_pool(conn, command, :command, opts)
 
       {:not_cluster, version, pool_name} ->
-        query_redis_pool({version, pool_name}, command, :command, opts)
+        query_redis_pool({version, pool_name}, conn, command, :command, opts)
     end
   end
 
@@ -34,10 +34,10 @@ defmodule RedixCluster.Run do
         |> keys_to_slot_hashs
         |> is_same_slot_hashs
         |> get_pool_by_slot(slots_maps, slots, version)
-        |> query_redis_pool(pipeline, :pipeline, opts)
+        |> query_redis_pool(conn, pipeline, :pipeline, opts)
 
       {:not_cluster, version, pool_name} ->
-        query_redis_pool({version, pool_name}, pipeline, :pipeline, opts)
+        query_redis_pool({version, pool_name}, conn, pipeline, :pipeline, opts)
     end
   end
 
@@ -94,37 +94,38 @@ defmodule RedixCluster.Run do
     end
   end
 
-  defp query_redis_pool({:error, _} = error, _command, _opts, _type), do: error
+  defp query_redis_pool({:error, _} = error, _conn, _command, _opts, _type), do: error
 
-  defp query_redis_pool({version, nil}, _command, _opts, _type) do
-    RedixCluster.Monitor.refresh_mapping(version)
+  defp query_redis_pool({version, nil}, conn, _command, _opts, _type) do
+    RedixCluster.Monitor.refresh_mapping(conn, version)
     {:error, :retry}
   end
 
-  defp query_redis_pool({version, pool_name}, command, type, opts) do
+  defp query_redis_pool({version, pool_name}, conn, command, type, opts) do
     pool_name
     |> :poolboy.transaction(fn worker -> GenServer.call(worker, {type, command, opts}) end)
-    |> parse_trans_result(version)
+    |> parse_trans_result(conn, version)
   catch
     :exit, _ ->
-      RedixCluster.Monitor.refresh_mapping(version)
+      RedixCluster.Monitor.refresh_mapping(conn, version)
       {:error, :retry}
   end
 
   defp parse_trans_result(
          {:error, %Redix.Error{message: <<"MOVED", _redirectioninfo::binary>>}},
+         conn,
          version
        ) do
-    RedixCluster.Monitor.refresh_mapping(version)
+    RedixCluster.Monitor.refresh_mapping(conn, version)
     {:error, :retry}
   end
 
-  defp parse_trans_result({:error, :no_connection}, version) do
-    RedixCluster.Monitor.refresh_mapping(version)
+  defp parse_trans_result({:error, :no_connection}, conn, version) do
+    RedixCluster.Monitor.refresh_mapping(conn, version)
     {:error, :retry}
   end
 
-  defp parse_trans_result(payload, _), do: payload
+  defp parse_trans_result(payload, _conn, _), do: payload
 
   defp verify_command_key(term1, term2) do
     term1
