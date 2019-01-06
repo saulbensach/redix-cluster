@@ -26,7 +26,7 @@ defmodule RedixCluster.Monitor do
   end
 
   def get_env(key, default \\ nil) do
-    Application.get_env(:redix_cluster, key, default)
+    Application.get_env(:redix_cluster_remastered, key, default)
   end
 
   @spec connect(term) :: :ok | {:error, :connect_to_empty_nodes}

@@ -14,14 +14,14 @@ A wrapper around Redix that allows you to connect to a Redis cluster.
 2. Ensure redix_cluster is started before your application:
 ```elixir
 def application do
-  [applications: [:redix_cluster]]
+  [applications: [:redix_cluster_remastered]]
 end
 ```
 
 ## Sample Config
 
 ```elixir
-config :redix_cluster,
+config :redix_cluster_remastered,
   cluster_nodes: [
     %{host: "localhost", port: 6379}
   ],

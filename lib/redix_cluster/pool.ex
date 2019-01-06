@@ -14,7 +14,7 @@ defmodule RedixCluster.Pool do
   @max_retry 20
 
   def get_env(key, default \\ nil) do
-    Application.get_env(:redix_cluster, key, default)
+    Application.get_env(:redix_cluster_remastered, key, default)
   end
 
   @spec start_link(Keyword.t()) :: Supervisor.on_start()
