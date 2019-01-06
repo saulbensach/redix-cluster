@@ -34,7 +34,7 @@ defmodule RedixCluster do
         type: :supervisor
       },
       %{
-        id: Module.concat(conn_name, Monitor),
+        id: Module.concat(conn_name, RedixCluster.Monitor),
         start: {RedixCluster.Monitor, :start_link, [[conn_name: conn_name]]},
         type: :worker
       }

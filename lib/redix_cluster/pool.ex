@@ -70,7 +70,9 @@ defmodule RedixCluster.Pool do
   @spec stop_redis_pool(atom) :: :ok | {:error, error}
         when error: :not_found | :simple_one_for_one | :running | :restarting
   def stop_redis_pool(pool_name) do
-    Supervisor.terminate_child(__MODULE__, pool_name)
-    Supervisor.delete_child(__MODULE__, pool_name)
+    conn = pool_name |> Atom.to_string() |> String.split("-") |> Enum.at(0)
+    table_name = Module.concat(conn, Pool)
+    Supervisor.terminate_child(table_name, pool_name)
+    Supervisor.delete_child(table_name, pool_name)
   end
 end
