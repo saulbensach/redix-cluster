@@ -14,7 +14,7 @@ defmodule RedixCluster.Mixfile do
       source_url: "https://github.com/SpotIM/redix-cluster",
       elixirc_paths: elixirc_paths(Mix.env()),
       # The main page in the docs
-      docs: [main: "ShieldedCache", logo: "assets/logo.png", extras: ["README.md"]],
+      docs: [main: "ShieldedCache", extras: ["README.md"]],
       dialyzer: [plt_add_deps: :project]
     ]
   end

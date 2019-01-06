@@ -10,3 +10,4 @@ bench/snapshots
 .elixir_ls
 dev.exs
 test.exs
+/doc
