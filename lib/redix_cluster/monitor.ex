@@ -86,7 +86,7 @@ defmodule RedixCluster.Monitor do
 
   defp close_connection(slots_map) do
     try do
-      RedixCluster.Pools.Supervisor.stop_redis_pool(slots_map.node.pool)
+      RedixCluster.Pool.Supervisor.stop_redis_pool(slots_map.node.pool)
     catch
       _ -> :ok
     end
@@ -167,7 +167,7 @@ defmodule RedixCluster.Monitor do
   end
 
   defp connect_node(node) do
-    case RedixCluster.Pools.Supervisor.new_pool(node.host, node.port) do
+    case RedixCluster.Pool.Supervisor.new_pool(node.host, node.port) do
       {:ok, pool_name} -> %{node | pool: pool_name}
       _ -> nil
     end

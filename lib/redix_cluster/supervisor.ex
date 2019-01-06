@@ -14,10 +14,10 @@ defmodule RedixCluster.Supervisor do
   def init(cache_name) do
     children = [
       %{
-        id: Module.concat(cache_name, RedixCluster.Pools.Supervisor),
+        id: Module.concat(cache_name, RedixCluster.Pool.Supervisor),
         start:
-          {RedixCluster.Pools.Supervisor, :start_link,
-           [[cache_name: cache_name, name: RedixCluster.Pools.Supervisor]]},
+          {RedixCluster.Pool.Supervisor, :start_link,
+           [[cache_name: cache_name, name: RedixCluster.Pool.Supervisor]]},
         type: :supervisor
       },
       %{

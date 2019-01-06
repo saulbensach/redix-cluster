@@ -1,4 +1,4 @@
-defmodule RedixCluster.Pools.Supervisor do
+defmodule RedixCluster.Pool.Supervisor do
   @moduledoc false
 
   use Supervisor
