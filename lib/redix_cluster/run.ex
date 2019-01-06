@@ -102,15 +102,13 @@ defmodule RedixCluster.Run do
   end
 
   defp query_redis_pool({version, pool_name}, command, type, opts) do
-    try do
-      pool_name
-      |> :poolboy.transaction(fn worker -> GenServer.call(worker, {type, command, opts}) end)
-      |> parse_trans_result(version)
-    catch
-      :exit, _ ->
-        RedixCluster.Monitor.refresh_mapping(version)
-        {:error, :retry}
-    end
+    pool_name
+    |> :poolboy.transaction(fn worker -> GenServer.call(worker, {type, command, opts}) end)
+    |> parse_trans_result(version)
+  catch
+    :exit, _ ->
+      RedixCluster.Monitor.refresh_mapping(version)
+      {:error, :retry}
   end
 
   defp parse_trans_result(

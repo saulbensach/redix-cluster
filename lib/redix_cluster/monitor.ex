@@ -9,9 +9,14 @@ defmodule RedixCluster.Monitor do
 
   @type conn :: module | atom | pid
 
-  @redis_cluster_hash_slots 16384
+  @redis_cluster_hash_slots 16_384
 
   defmodule State do
+    @moduledoc """
+    ### RedixCluster.Monitor.State
+
+    The state of the `RedixCluster.Monitor` Worker.
+    """
     defstruct conn_name: nil,
               cluster_nodes: [],
               slots: [],
@@ -62,11 +67,11 @@ defmodule RedixCluster.Monitor do
     end
   end
 
-  def handle_call({:reload_slots_map, version}, _from, state = %State{version: version}) do
+  def handle_call({:reload_slots_map, version}, _from, %State{version: version} = state) do
     {:reply, :ok, reload_slots_map(state)}
   end
 
-  def handle_call({:reload_slots_map, version}, _from, state = %State{version: old_version}) do
+  def handle_call({:reload_slots_map, version}, _from, %State{version: old_version} = state) do
     {:reply, {:ingore, "wrong version#{version}!=#{old_version}"}, state}
   end
 
@@ -102,11 +107,9 @@ defmodule RedixCluster.Monitor do
   end
 
   defp close_connection(slots_map) do
-    try do
-      RedixCluster.Pool.stop_redis_pool(slots_map.node.pool)
-    catch
-      _ -> :ok
-    end
+    RedixCluster.Pool.stop_redis_pool(slots_map.node.pool)
+  catch
+    _ -> :ok
   end
 
   defp get_cluster_info([]), do: throw({:error, :cannot_connect_to_cluster})

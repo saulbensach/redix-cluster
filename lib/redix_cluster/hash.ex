@@ -7,7 +7,7 @@ defmodule RedixCluster.Hash do
 
   use Bitwise
 
-  @redis_cluster_hash_slots 16384
+  @redis_cluster_hash_slots 16_384
   @crcdef <<0x00, 0x00, 0x10, 0x21, 0x20, 0x42, 0x30, 0x63, 0x40, 0x84, 0x50, 0xA5, 0x60, 0xC6,
             0x70, 0xE7, 0x81, 0x08, 0x91, 0x29, 0xA1, 0x4A, 0xB1, 0x6B, 0xC1, 0x8C, 0xD1, 0xAD,
             0xE1, 0xCE, 0xF1, 0xEF, 0x12, 0x31, 0x02, 0x10, 0x32, 0x73, 0x22, 0x52, 0x52, 0xB5,
@@ -48,13 +48,13 @@ defmodule RedixCluster.Hash do
 
   @spec hash(binary) :: integer
   def hash(key) when is_binary(key), do: key |> to_charlist() |> hash()
-  def hash(key), do: crc16(0, key) |> rem(@redis_cluster_hash_slots)
+  def hash(key), do: 0 |> crc16(key) |> rem(@redis_cluster_hash_slots)
 
   defp crc16(crc, []), do: crc
 
   defp crc16(crc, [b | rest]) do
-    index = bsr(crc, 8) |> bxor(b) |> band(0xFF)
-    bsl(crc, 8) |> band(0xFFFF) |> bxor(crc_index(index)) |> crc16(rest)
+    index = crc |> bsr(8) |> bxor(b) |> band(0xFF)
+    crc |> bsl(8) |> band(0xFFFF) |> bxor(crc_index(index)) |> crc16(rest)
   end
 
   defp crc_index(n) do

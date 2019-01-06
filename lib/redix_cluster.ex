@@ -4,7 +4,6 @@ defmodule RedixCluster do
 
   The main API to interface with a Redis Cluster using Redix as a client.
 
-
   **NOTE: When using Redis, make sure CROSSSLOT Keys in request hash to the same slot.**
   """
 
@@ -68,7 +67,8 @@ defmodule RedixCluster do
   defp command(conn, command, opts, count) do
     unless count == 0, do: :timer.sleep(@redis_retry_delay)
 
-    RedixCluster.Run.command(conn, command, opts)
+    conn
+    |> RedixCluster.Run.command(command, opts)
     |> need_retry(conn, command, opts, count, :command)
   end
 
@@ -78,7 +78,8 @@ defmodule RedixCluster do
   defp pipeline(conn, commands, opts, count) do
     unless count == 0, do: :timer.sleep(@redis_retry_delay)
 
-    RedixCluster.Run.pipeline(conn, commands, opts)
+    conn
+    |> RedixCluster.Run.pipeline(commands, opts)
     |> need_retry(conn, commands, opts, count, :pipeline)
   end
 
