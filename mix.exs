@@ -14,13 +14,19 @@ defmodule RedixCluster.Mixfile do
   end
 
   def application do
-    [applications: [:logger, :redix]]
+    [
+      extra_applications: applications(Mix.env())
+    ]
   end
+
+  defp applications(:dev), do: applications(:all) ++ [:remixed_remix]
+  defp applications(_all), do: [:logger, :runtime_tools]
 
   defp deps do
     [
       {:redix, ">= 0.0.0"},
-      {:poolboy, "~> 1.5"}
+      {:poolboy, "~> 1.5"},
+      {:remixed_remix, "~> 1.0.0", only: :dev}
     ]
   end
 end

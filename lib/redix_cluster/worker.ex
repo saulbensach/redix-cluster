@@ -9,14 +9,8 @@ defmodule RedixCluster.Worker do
 
   def init(worker) do
     :erlang.process_flag(:trap_exit, true)
-    RedixCluster.Pool.Supervisor.register_worker_connection(worker[:pool_name])
-
-    result =
-      Redix.start_link(
-        host: to_string(worker[:host]),
-        port: worker[:port]
-      )
-
+    RedixCluster.Pool.register_worker_connection(worker[:pool_name])
+    result = Redix.start_link(host: to_string(worker[:host]), port: worker[:port])
     :erlang.process_flag(:trap_exit, false)
 
     case result do

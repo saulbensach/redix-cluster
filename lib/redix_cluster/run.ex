@@ -3,9 +3,9 @@ defmodule RedixCluster.Run do
 
   @type command :: [binary]
 
-  @spec command(command, Keyword.t()) :: {:ok, term} | {:error, term}
-  def command(command, opts) do
-    case RedixCluster.Monitor.get_slot_cache() do
+  @spec command(String.t(), command, Keyword.t()) :: {:ok, term} | {:error, term}
+  def command(cache_name, command, opts) do
+    case RedixCluster.Monitor.get_slot_cache(cache_name) do
       {:cluster, slots_maps, slots, version} ->
         command
         |> parse_key_from_command
@@ -18,9 +18,9 @@ defmodule RedixCluster.Run do
     end
   end
 
-  @spec pipeline([command], Keyword.t()) :: {:ok, term} | {:error, term}
-  def pipeline(pipeline, opts) do
-    case RedixCluster.Monitor.get_slot_cache() do
+  @spec pipeline(String.t(), [command], Keyword.t()) :: {:ok, term} | {:error, term}
+  def pipeline(cache_name, pipeline, opts) do
+    case RedixCluster.Monitor.get_slot_cache(cache_name) do
       {:cluster, slots_maps, slots, version} ->
         pipeline
         |> parse_keys_from_pipeline
@@ -31,24 +31,6 @@ defmodule RedixCluster.Run do
 
       {:not_cluster, version, pool_name} ->
         query_redis_pool({version, pool_name}, pipeline, :pipeline, opts)
-    end
-  end
-
-  @spec transaction([command], Keyword.t()) :: {:ok, term} | {:error, term}
-  def transaction(pipeline, opts) do
-    transaction = [["MULTI"]] ++ pipeline ++ [["EXEC"]]
-
-    case RedixCluster.Monitor.get_slot_cache() do
-      {:cluster, slots_maps, slots, version} ->
-        pipeline
-        |> parse_keys_from_pipeline
-        |> keys_to_slot_hashs
-        |> is_same_slot_hashs
-        |> get_pool_by_slot(slots_maps, slots, version)
-        |> query_redis_pool(transaction, :pipeline, opts)
-
-      {:not_cluster, version, pool_name} ->
-        query_redis_pool({version, pool_name}, transaction, :pipeline, opts)
     end
   end
 

@@ -1,4 +1,5 @@
 %{
   "poolboy": {:hex, :poolboy, "1.5.1", "6b46163901cfd0a1b43d692657ed9d7e599853b3b21b95ae5ae0a777cf9b6ca8", [:rebar], [], "hexpm"},
   "redix": {:hex, :redix, "0.9.0", "c631c921354587e054bf1e2a6b7d0120d617352fc42b624b9ca79ea484d0326c", [:mix], [], "hexpm"},
+  "remixed_remix": {:hex, :remixed_remix, "1.0.0", "1a4c4555352361d3d72fb783e6ad25e7ea5e03a8506d038533499828d3b55b9e", [:mix], [], "hexpm"},
 }

@@ -7,7 +7,12 @@ defmodule RedixCluster.Monitor do
   @redis_cluster_hash_slots 16384
 
   defmodule State do
-    defstruct cluster_nodes: [], slots: [], slots_maps: [], version: 0, is_cluster: true
+    defstruct cache_name: nil,
+              cluster_nodes: [],
+              slots: [],
+              slots_maps: [],
+              version: 0,
+              is_cluster: true
   end
 
   @spec connect(term) :: :ok | {:error, :connect_to_empty_nodes}
@@ -17,10 +22,10 @@ defmodule RedixCluster.Monitor do
   @spec refresh_mapping(integer) :: :ok | {:ignore, String.t()}
   def refresh_mapping(version), do: GenServer.call(__MODULE__, {:reload_slots_map, version})
 
-  @spec get_slot_cache() ::
+  @spec get_slot_cache(String.t()) ::
           {:cluster, [binary], [integer], integer} | {:not_cluster, integer, atom}
-  def get_slot_cache() do
-    [{:cluster_state, state}] = :ets.lookup(__MODULE__, :cluster_state)
+  def get_slot_cache(cache_name) do
+    [{:cluster_state, state}] = :ets.lookup(cache_name, :cluster_state)
 
     case state.is_cluster do
       true ->
@@ -33,14 +38,18 @@ defmodule RedixCluster.Monitor do
   end
 
   @spec start_link(Keyword.t()) :: GenServer.on_start()
-  def start_link(options), do: GenServer.start_link(__MODULE__, nil, options)
+  def start_link(opts) do
+    {cache_name, _opts} = Keyword.pop(opts, :cache_name, ShieldedCache)
+    name = Module.concat(cache_name, RedixCluster.Monitor)
+    GenServer.start_link(__MODULE__, cache_name, name: name)
+  end
 
-  def init(nil) do
-    :ets.new(__MODULE__, [:protected, :set, :named_table, {:read_concurrency, true}])
+  def init(cache_name) do
+    :ets.new(cache_name, [:protected, :set, :named_table, {:read_concurrency, true}])
 
     case get_env(:cluster_nodes, []) do
-      [] -> {:ok, %State{}}
-      cluster_nodes -> {:ok, do_connect(cluster_nodes)}
+      [] -> {:ok, %State{cache_name: cache_name}}
+      cluster_nodes -> {:ok, do_connect(cache_name, cluster_nodes)}
     end
   end
 
@@ -52,8 +61,8 @@ defmodule RedixCluster.Monitor do
     {:reply, {:ingore, "wrong version#{version}!=#{old_version}"}, state}
   end
 
-  def handle_call({:connect, cluster_nodes}, _from, _state),
-    do: {:reply, :ok, do_connect(cluster_nodes)}
+  def handle_call({:connect, cluster_nodes}, _from, %State{cache_name: cache_name} = _state),
+    do: {:reply, :ok, do_connect(cache_name, cluster_nodes)}
 
   def handle_call(request, _from, state), do: {:reply, {:ignored, request}, state}
 
@@ -61,15 +70,14 @@ defmodule RedixCluster.Monitor do
 
   def handle_info(_info, state), do: {:noreply, state}
 
-  defp do_connect(cluster_nodes) do
-    %State{cluster_nodes: cluster_nodes}
-    |> reload_slots_map
+  defp do_connect(cache_name, cluster_nodes) do
+    %State{cache_name: cache_name, cluster_nodes: cluster_nodes} |> reload_slots_map
   end
 
-  defp reload_slots_map(state) do
+  defp reload_slots_map(%State{cache_name: cache_name} = state) do
     for slots_map <- state.slots_maps, do: close_connection(slots_map)
     {is_cluster, cluster_info} = get_cluster_info(state.cluster_nodes)
-    slots_maps = cluster_info |> parse_slots_maps |> connect_all_slots
+    slots_maps = cluster_info |> parse_slots_maps |> connect_all_slots(cache_name)
     slots = create_slots_cache(slots_maps)
 
     new_state = %State{
@@ -80,13 +88,13 @@ defmodule RedixCluster.Monitor do
         is_cluster: is_cluster
     }
 
-    true = :ets.insert(__MODULE__, [{:cluster_state, new_state}])
+    true = :ets.insert(cache_name, [{:cluster_state, new_state}])
     new_state
   end
 
   defp close_connection(slots_map) do
     try do
-      RedixCluster.Pool.Supervisor.stop_redis_pool(slots_map.node.pool)
+      RedixCluster.Pool.stop_redis_pool(slots_map.node.pool)
     catch
       _ -> :ok
     end
@@ -124,8 +132,8 @@ defmodule RedixCluster.Monitor do
     |> Enum.to_list()
   end
 
-  defp connect_all_slots(slots_maps) do
-    for slot <- slots_maps, do: %{slot | node: connect_node(slot.node)}
+  defp connect_all_slots(slots_maps, cache_name) do
+    for slot <- slots_maps, do: %{slot | node: connect_node(cache_name, slot.node)}
   end
 
   defp create_slots_cache(slots_maps) do
@@ -139,13 +147,7 @@ defmodule RedixCluster.Monitor do
 
   def start_link_redix(host, port) do
     :erlang.process_flag(:trap_exit, true)
-
-    result =
-      Redix.start_link(
-        host: host,
-        port: port
-      )
-
+    result = Redix.start_link(host: host, port: port)
     :erlang.process_flag(:trap_exit, false)
     result
   end
@@ -166,8 +168,8 @@ defmodule RedixCluster.Monitor do
     }
   end
 
-  defp connect_node(node) do
-    case RedixCluster.Pool.Supervisor.new_pool(node.host, node.port) do
+  defp connect_node(cache_name, node) do
+    case RedixCluster.Pool.new_pool(cache_name, node.host, node.port) do
       {:ok, pool_name} -> %{node | pool: pool_name}
       _ -> nil
     end
