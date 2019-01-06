@@ -7,7 +7,7 @@ A wrapper around Redix that allows you to connect to a Redis cluster.
 1. Add redix_cluster to your list of dependencies in `mix.exs`:
 ```elixir
   def deps do
-    [{:redix_cluster, "~> 0.0.1"}]
+    [{:redix_cluster_remastered, "~> 1.0.0"}]
   end
 ```
 
