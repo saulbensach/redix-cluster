@@ -1,21 +1,27 @@
 defmodule RedixCluster.Monitor do
-  @moduledoc false
+  @moduledoc """
+  ## RedixCluster.Monitor
+
+  The monitor for the Redis cluster, which handles creating connections to the cluster using a pool of Redis clients.
+  """
 
   use GenServer
 
-  def get_env(key, default \\ nil) do
-    Application.get_env(:redix_cluster, key, default)
-  end
+  @type conn :: module | atom | pid
 
   @redis_cluster_hash_slots 16384
 
   defmodule State do
-    defstruct cache_name: nil,
+    defstruct conn_name: nil,
               cluster_nodes: [],
               slots: [],
               slots_maps: [],
               version: 0,
               is_cluster: true
+  end
+
+  def get_env(key, default \\ nil) do
+    Application.get_env(:redix_cluster, key, default)
   end
 
   @spec connect(term) :: :ok | {:error, :connect_to_empty_nodes}
@@ -25,10 +31,10 @@ defmodule RedixCluster.Monitor do
   @spec refresh_mapping(integer) :: :ok | {:ignore, String.t()}
   def refresh_mapping(version), do: GenServer.call(__MODULE__, {:reload_slots_map, version})
 
-  @spec get_slot_cache(String.t()) ::
+  @spec get_slot_cache(conn) ::
           {:cluster, [binary], [integer], integer} | {:not_cluster, integer, atom}
-  def get_slot_cache(cache_name) do
-    [{:cluster_state, state}] = :ets.lookup(cache_name, :cluster_state)
+  def get_slot_cache(conn) do
+    [{:cluster_state, state}] = :ets.lookup(conn, :cluster_state)
 
     case state.is_cluster do
       true ->
@@ -42,17 +48,17 @@ defmodule RedixCluster.Monitor do
 
   @spec start_link(Keyword.t()) :: GenServer.on_start()
   def start_link(opts) do
-    {cache_name, _opts} = Keyword.pop(opts, :cache_name, ShieldedCache)
-    name = Module.concat(cache_name, RedixCluster.Monitor)
-    GenServer.start_link(__MODULE__, cache_name, name: name)
+    {conn_name, _opts} = Keyword.pop(opts, :conn_name, RedixCluster)
+    name = Module.concat(conn_name, RedixCluster.Monitor)
+    GenServer.start_link(__MODULE__, conn_name, name: name)
   end
 
-  def init(cache_name) do
-    :ets.new(cache_name, [:protected, :set, :named_table, {:read_concurrency, true}])
+  def init(conn_name) do
+    :ets.new(conn_name, [:protected, :set, :named_table, {:read_concurrency, true}])
 
     case get_env(:cluster_nodes, []) do
-      [] -> {:ok, %State{cache_name: cache_name}}
-      cluster_nodes -> {:ok, do_connect(cache_name, cluster_nodes)}
+      [] -> {:ok, %State{conn_name: conn_name}}
+      cluster_nodes -> {:ok, do_connect(conn_name, cluster_nodes)}
     end
   end
 
@@ -64,8 +70,8 @@ defmodule RedixCluster.Monitor do
     {:reply, {:ingore, "wrong version#{version}!=#{old_version}"}, state}
   end
 
-  def handle_call({:connect, cluster_nodes}, _from, %State{cache_name: cache_name} = _state),
-    do: {:reply, :ok, do_connect(cache_name, cluster_nodes)}
+  def handle_call({:connect, cluster_nodes}, _from, %State{conn_name: conn_name} = _state),
+    do: {:reply, :ok, do_connect(conn_name, cluster_nodes)}
 
   def handle_call(request, _from, state), do: {:reply, {:ignored, request}, state}
 
@@ -73,14 +79,14 @@ defmodule RedixCluster.Monitor do
 
   def handle_info(_info, state), do: {:noreply, state}
 
-  defp do_connect(cache_name, cluster_nodes) do
-    %State{cache_name: cache_name, cluster_nodes: cluster_nodes} |> reload_slots_map
+  defp do_connect(conn_name, cluster_nodes) do
+    %State{conn_name: conn_name, cluster_nodes: cluster_nodes} |> reload_slots_map
   end
 
-  defp reload_slots_map(%State{cache_name: cache_name} = state) do
+  defp reload_slots_map(%State{conn_name: conn_name} = state) do
     for slots_map <- state.slots_maps, do: close_connection(slots_map)
     {is_cluster, cluster_info} = get_cluster_info(state.cluster_nodes)
-    slots_maps = cluster_info |> parse_slots_maps |> connect_all_slots(cache_name)
+    slots_maps = cluster_info |> parse_slots_maps |> connect_all_slots(conn_name)
     slots = create_slots_cache(slots_maps)
 
     new_state = %State{
@@ -91,7 +97,7 @@ defmodule RedixCluster.Monitor do
         is_cluster: is_cluster
     }
 
-    true = :ets.insert(cache_name, [{:cluster_state, new_state}])
+    true = :ets.insert(conn_name, [{:cluster_state, new_state}])
     new_state
   end
 

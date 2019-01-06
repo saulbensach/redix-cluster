@@ -1,5 +1,9 @@
 defmodule RedixCluster.Hash do
-  @moduledoc false
+  @moduledoc """
+  ## RedixCluster.Hash
+
+  The hashing algorithm for connecting to a Redis cluster.
+  """
 
   use Bitwise
 

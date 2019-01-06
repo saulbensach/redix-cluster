@@ -1,20 +1,26 @@
 defmodule RedixCluster.Pool do
-  @moduledoc false
+  @moduledoc """
+  ## RedixCluster.Pool
+
+  The pool supervisor, which uses `poolboy` to manage a pool of worker connections to Redis.
+  """
 
   use Supervisor
 
-  def get_env(key, default \\ nil) do
-    Application.get_env(:redix_cluster, key, default)
-  end
+  @type conn :: module | atom | pid
 
   @default_pool_size 10
   @default_pool_max_overflow 0
   @max_retry 20
 
+  def get_env(key, default \\ nil) do
+    Application.get_env(:redix_cluster, key, default)
+  end
+
   @spec start_link(Keyword.t()) :: Supervisor.on_start()
   def start_link(opts) do
-    {cache_name, _opts} = Keyword.pop(opts, :cache_name, ShieldedCache)
-    table_name = Module.concat(cache_name, CachingModule.Pool)
+    {conn_name, _opts} = Keyword.pop(opts, :conn_name, RedixCluster)
+    table_name = Module.concat(conn_name, Pool)
     :ets.new(table_name, [:set, :named_table, :public])
     Supervisor.start_link(__MODULE__, nil, name: table_name)
   end
@@ -24,10 +30,10 @@ defmodule RedixCluster.Pool do
     Supervisor.init(children, strategy: :one_for_one)
   end
 
-  @spec new_pool(String.t(), charlist, integer) :: {:ok, atom} | {:error, atom}
-  def new_pool(cache_name, host, port) do
-    pool_name = [cache_name, "-Pool-", host, ":", port] |> Enum.join() |> String.to_atom()
-    table_name = Module.concat(cache_name, CachingModule.Pool)
+  @spec new_pool(conn, charlist, integer) :: {:ok, atom} | {:error, atom}
+  def new_pool(conn, host, port) do
+    pool_name = [conn, "-Pool-", host, ":", port] |> Enum.join() |> String.to_atom()
+    table_name = Module.concat(conn, Pool)
 
     case Process.whereis(pool_name) do
       nil ->
@@ -52,16 +58,16 @@ defmodule RedixCluster.Pool do
     end
   end
 
-  @spec register_worker_connection(String.t()) :: :ok
+  @spec register_worker_connection(atom) :: :ok
   def register_worker_connection(pool_name) do
-    cache_name = pool_name |> Atom.to_string() |> String.split("-") |> Enum.at(0)
-    table_name = Module.concat(cache_name, CachingModule.Pool)
+    conn = pool_name |> Atom.to_string() |> String.split("-") |> Enum.at(0)
+    table_name = Module.concat(conn, Pool)
     restart_counter = :ets.update_counter(table_name, pool_name, 1)
     unless restart_counter < @max_retry, do: stop_redis_pool(pool_name)
     :ok
   end
 
-  @spec stop_redis_pool(String.t()) :: :ok | {:error, error}
+  @spec stop_redis_pool(atom) :: :ok | {:error, error}
         when error: :not_found | :simple_one_for_one | :running | :restarting
   def stop_redis_pool(pool_name) do
     Supervisor.terminate_child(__MODULE__, pool_name)

@@ -1,11 +1,18 @@
 defmodule RedixCluster.Run do
-  @moduledoc false
+  @moduledoc """
+  ## RedixCluster.Run
+
+  The main module that is used to run commands on top of the Redis cluster.
+
+  This module manages connecting to slots and querying the cluster.
+  """
 
   @type command :: [binary]
+  @type conn :: module | atom | pid
 
-  @spec command(String.t(), command, Keyword.t()) :: {:ok, term} | {:error, term}
-  def command(cache_name, command, opts) do
-    case RedixCluster.Monitor.get_slot_cache(cache_name) do
+  @spec command(conn, command, Keyword.t()) :: {:ok, term} | {:error, term}
+  def command(conn, command, opts) do
+    case RedixCluster.Monitor.get_slot_cache(conn) do
       {:cluster, slots_maps, slots, version} ->
         command
         |> parse_key_from_command
@@ -18,9 +25,9 @@ defmodule RedixCluster.Run do
     end
   end
 
-  @spec pipeline(String.t(), [command], Keyword.t()) :: {:ok, term} | {:error, term}
-  def pipeline(cache_name, pipeline, opts) do
-    case RedixCluster.Monitor.get_slot_cache(cache_name) do
+  @spec pipeline(conn, [command], Keyword.t()) :: {:ok, term} | {:error, term}
+  def pipeline(conn, pipeline, opts) do
+    case RedixCluster.Monitor.get_slot_cache(conn) do
       {:cluster, slots_maps, slots, version} ->
         pipeline
         |> parse_keys_from_pipeline

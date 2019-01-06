@@ -1,7 +1,10 @@
 defmodule RedixCluster.Error do
   @moduledoc """
-  Error returned by RedisCluster.
+  ## RedixCluster.Error
+
+  All errors that are returned by the RedixCluster package.
   """
+
   defexception [:message]
 
   def exception(reason) when is_binary(reason), do: %__MODULE__{message: reason}

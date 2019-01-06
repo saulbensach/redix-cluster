@@ -1,37 +1,42 @@
 defmodule RedixCluster do
   @moduledoc """
-  This module provides the main API to interface with Redis Cluster by Redix.
+  ## RedixCluster
 
-  `Make sure` CROSSSLOT Keys in request hash to the same slot
+  The main API to interface with a Redis Cluster using Redix as a client.
+
+
+  **NOTE: When using Redis, make sure CROSSSLOT Keys in request hash to the same slot.**
   """
+
   use Supervisor
 
   @type command :: [binary]
+  @type conn :: module | atom | pid
 
   @max_retry 20
   @redis_retry_delay 100
 
   @doc """
-    Starts RedixCluster.
+    Starts RedixCluster as a supervisor in your supervision tree.
   """
   @spec start_link(opts :: Keyword.t()) :: Supervisor.on_start()
   def start_link(opts \\ []) do
-    {cache_name, _opts} = Keyword.pop(opts, :cache_name, ShieldedCache)
-    name = Module.concat(cache_name, CachingModule)
-    Supervisor.start_link(__MODULE__, cache_name, name: name)
+    {conn_name, _opts} = Keyword.pop(opts, :conn_name, RedixCluster)
+    name = Module.concat(conn_name, Main)
+    Supervisor.start_link(__MODULE__, conn_name, name: name)
   end
 
-  @spec init(cache_name :: module) :: Supervisor.on_start()
-  def init(cache_name) do
+  @spec init(conn_name :: conn) :: Supervisor.on_start()
+  def init(conn_name) do
     children = [
       %{
-        id: Module.concat(cache_name, Pool),
-        start: {RedixCluster.Pool, :start_link, [[cache_name: cache_name]]},
+        id: Module.concat(conn_name, Pool),
+        start: {RedixCluster.Pool, :start_link, [[conn_name: conn_name]]},
         type: :supervisor
       },
       %{
-        id: Module.concat(cache_name, Monitor),
-        start: {RedixCluster.Monitor, :start_link, [[cache_name: cache_name]]},
+        id: Module.concat(conn_name, Monitor),
+        start: {RedixCluster.Monitor, :start_link, [[conn_name: conn_name]]},
         type: :worker
       }
     ]
@@ -40,80 +45,48 @@ defmodule RedixCluster do
   end
 
   @doc """
-  This function works exactly like `Redix.command/3`
-  ## Examples
+  `command/3`
 
-      iex> RedixCluster.command(~w(SET mykey foo))
-      {:ok, "OK"}
-
-      iex> RedixCluster.command(~w(GET mykey))
-      {:ok, "foo"}
-
-      iex> RedixCluster.command(~w(INCR mykey zhongwen))
-      {:error,
-       %Redix.Error{message: "ERR wrong number of arguments for 'incr' command"}}
-
-      iex> RedixCluster.command(~w(mget ym d ))
-      {:error,
-       %Redix.Error{message: "CROSSSLOT Keys in request don't hash to the same slot"}}
-
-      iex> RedixCluster.command(~w(mset {keysamehash}ym 1 {keysamehash}d 2 ))
-      {:ok, "OK"}
-
-      iex> RedixCluster.command(~w(mget {keysamehash}ym {keysamehash}d ))
-      {:ok, ["1", "2"]}
-
+  Runs a command on the Redis cluster.
   """
-  @spec command(String.t(), String.t(), Keyword.t()) ::
-          {:ok, Redix.Protocol.redis_value()}
-          | {:error, Redix.Error.t() | atom}
-  def command(cache_name, command, opts \\ []), do: command(cache_name, command, opts, 0)
+  @spec command(conn, command, Keyword.t()) ::
+          {:ok, Redix.Protocol.redis_value()} | {:error, Redix.Error.t() | atom}
+  def command(conn, command, opts \\ []), do: command(conn, command, opts, 0)
 
   @doc """
-  This function works exactly like `Redix.pipeline/3`
+  `pipeline/3`
 
-  ## Examples
-
-      iex> RedixCluster.pipeline([~w(INCR mykey), ~w(INCR mykey), ~w(DECR mykey)])
-      {:ok, [1, 2, 1]}
-
-      iex> RedixCluster.pipeline([~w(SET {samehash}k3 foo), ~w(INCR {samehash}k2), ~w(GET {samehash}k1)])
-      {:ok, ["OK", 1, nil]}
-
-      iex> RedixCluster.pipeline([~w(SET {diffhash3}k3 foo), ~w(INCR {diffhash2}k2), ~w(GET {diffhash1}k1)])
-      {:error, :key_must_same_slot}
-
+  Runs a pipeline on the Redis cluster.
   """
-  @spec pipeline(String.t(), [command], Keyword.t()) ::
-          {:ok, [Redix.Protocol.redis_value()]}
-          | {:error, atom}
-  def pipeline(cache_name, commands, opts \\ []), do: pipeline(cache_name, commands, opts, 0)
+  @spec pipeline(conn, [command], Keyword.t()) ::
+          {:ok, [Redix.Protocol.redis_value()]} | {:error, atom}
+  def pipeline(conn, commands, opts \\ []), do: pipeline(conn, commands, opts, 0)
 
-  defp command(_cache_name, _command, _opts, count) when count >= @max_retry,
+  defp command(_conn, _command, _opts, count) when count >= @max_retry,
     do: {:error, :no_connection}
 
-  defp command(cache_name, command, opts, count) do
+  defp command(conn, command, opts, count) do
     unless count == 0, do: :timer.sleep(@redis_retry_delay)
 
-    RedixCluster.Run.command(cache_name, command, opts)
-    |> need_retry(command, opts, count, :command)
+    RedixCluster.Run.command(conn, command, opts)
+    |> need_retry(conn, command, opts, count, :command)
   end
 
-  defp pipeline(_cache_name, _commands, _opts, count) when count >= @max_retry,
+  defp pipeline(_conn, _commands, _opts, count) when count >= @max_retry,
     do: {:error, :no_connection}
 
-  defp pipeline(cache_name, commands, opts, count) do
+  defp pipeline(conn, commands, opts, count) do
     unless count == 0, do: :timer.sleep(@redis_retry_delay)
 
-    RedixCluster.Run.pipeline(cache_name, commands, opts)
-    |> need_retry(commands, opts, count, :pipeline)
+    RedixCluster.Run.pipeline(conn, commands, opts)
+    |> need_retry(conn, commands, opts, count, :pipeline)
   end
 
-  defp need_retry({:error, :retry}, command, opts, count, :command),
-    do: command(command, opts, count + 1)
+  defp need_retry({:error, :retry}, conn, command, opts, count, :command),
+    do: command(conn, command, opts, count + 1)
 
-  defp need_retry({:error, :retry}, commands, opts, count, :pipeline),
-    do: pipeline(commands, opts, count + 1)
+  defp need_retry({:error, :retry}, conn, commands, opts, count, :pipeline),
+    do: pipeline(conn, commands, opts, count + 1)
 
-  defp need_retry(result, _command, _count, _opts, _type), do: result
+  defp need_retry(result, _conn, _command, _count, _opts, _type), do: result
 end

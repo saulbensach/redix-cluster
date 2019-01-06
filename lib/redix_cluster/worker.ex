@@ -1,7 +1,10 @@
 defmodule RedixCluster.Worker do
   @moduledoc """
-    role: poolboy worker
+  ## RedixCluster.Worker
+
+  The Redis client worker module that `poolboy` uses.
   """
+
   use GenServer
 
   def get_env(key, default \\ nil) do
