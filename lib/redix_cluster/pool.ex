@@ -2,7 +2,10 @@ defmodule RedixCluster.Pool do
   @moduledoc false
 
   use Supervisor
-  use RedixCluster.Helper
+
+  def get_env(key, default \\ nil) do
+    Application.get_env(:redix_cluster, key, default)
+  end
 
   @default_pool_size 10
   @default_pool_max_overflow 0

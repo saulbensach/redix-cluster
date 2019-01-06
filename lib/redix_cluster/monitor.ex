@@ -2,7 +2,10 @@ defmodule RedixCluster.Monitor do
   @moduledoc false
 
   use GenServer
-  use RedixCluster.Helper
+
+  def get_env(key, default \\ nil) do
+    Application.get_env(:redix_cluster, key, default)
+  end
 
   @redis_cluster_hash_slots 16384
 

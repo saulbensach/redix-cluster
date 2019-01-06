@@ -3,7 +3,10 @@ defmodule RedixCluster.Worker do
     role: poolboy worker
   """
   use GenServer
-  use RedixCluster.Helper
+
+  def get_env(key, default \\ nil) do
+    Application.get_env(:redix_cluster, key, default)
+  end
 
   def start_link(args), do: GenServer.start_link(__MODULE__, args)
 
