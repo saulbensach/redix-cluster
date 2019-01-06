@@ -8,3 +8,5 @@ erl_crash.dump
 bench/graphs
 bench/snapshots
 .elixir_ls
+dev.exs
+test.exs
