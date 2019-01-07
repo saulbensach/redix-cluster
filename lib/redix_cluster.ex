@@ -12,7 +12,7 @@ defmodule RedixCluster do
   @type command :: [binary]
   @type conn :: module | atom | pid
 
-  @max_retry 20
+  @max_retry 1_000
   @redis_retry_delay 100
 
   @doc """
@@ -50,7 +50,7 @@ defmodule RedixCluster do
   """
   @spec command(conn, command, Keyword.t()) ::
           {:ok, Redix.Protocol.redis_value()} | {:error, Redix.Error.t() | atom}
-  def command(conn, command, opts \\ []), do: command(conn, command, opts, 0)
+  def command(conn, command, opts \\ []), do: command(conn, command, opts, 0, 0)
 
   @doc """
   `pipeline/3`
@@ -59,35 +59,35 @@ defmodule RedixCluster do
   """
   @spec pipeline(conn, [command], Keyword.t()) ::
           {:ok, [Redix.Protocol.redis_value()]} | {:error, atom}
-  def pipeline(conn, commands, opts \\ []), do: pipeline(conn, commands, opts, 0)
+  def pipeline(conn, commands, opts \\ []), do: pipeline(conn, commands, opts, 0, 0)
 
-  defp command(_conn, _command, _opts, count) when count >= @max_retry,
+  defp command(_conn, _command, _opts, count, _delay) when count >= @max_retry,
     do: {:error, :no_connection}
 
-  defp command(conn, command, opts, count) do
-    unless count == 0, do: :timer.sleep(@redis_retry_delay)
+  defp command(conn, command, opts, count, delay) do
+    Process.sleep(delay)
 
     conn
     |> RedixCluster.Run.command(command, opts)
-    |> need_retry(conn, command, opts, count, :command)
+    |> need_retry(conn, command, opts, count, delay, :command)
   end
 
-  defp pipeline(_conn, _commands, _opts, count) when count >= @max_retry,
+  defp pipeline(_conn, _commands, _opts, count, _delay) when count >= @max_retry,
     do: {:error, :no_connection}
 
-  defp pipeline(conn, commands, opts, count) do
-    unless count == 0, do: :timer.sleep(@redis_retry_delay)
+  defp pipeline(conn, commands, opts, count, delay) do
+    Process.sleep(delay)
 
     conn
     |> RedixCluster.Run.pipeline(commands, opts)
-    |> need_retry(conn, commands, opts, count, :pipeline)
+    |> need_retry(conn, commands, opts, count, delay, :pipeline)
   end
 
-  defp need_retry({:error, :retry}, conn, command, opts, count, :command),
-    do: command(conn, command, opts, count + 1)
+  defp need_retry({:error, :retry}, conn, command, opts, count, delay, :command),
+    do: command(conn, command, opts, count + 1, delay + @redis_retry_delay)
 
-  defp need_retry({:error, :retry}, conn, commands, opts, count, :pipeline),
-    do: pipeline(conn, commands, opts, count + 1)
+  defp need_retry({:error, :retry}, conn, commands, opts, count, delay, :pipeline),
+    do: pipeline(conn, commands, opts, count + 1, delay + @redis_retry_delay)
 
-  defp need_retry(result, _conn, _command, _count, _opts, _type), do: result
+  defp need_retry(result, _conn, _command, _count, _delay, _opts, _type), do: result
 end
