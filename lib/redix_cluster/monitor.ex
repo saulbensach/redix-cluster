@@ -76,7 +76,7 @@ defmodule RedixCluster.Monitor do
   end
 
   def handle_call({:reload_slots_map, version}, _from, %State{version: old_version} = state) do
-    {:reply, {:ingore, "wrong version#{version}!=#{old_version}"}, state}
+    {:reply, {:ignore, "wrong version#{version}!=#{old_version}"}, state}
   end
 
   def handle_call({:connect, cluster_nodes}, _from, %State{conn_name: conn_name} = _state),
