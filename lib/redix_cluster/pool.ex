@@ -11,7 +11,6 @@ defmodule RedixCluster.Pool do
 
   @default_pool_size 10
   @default_pool_max_overflow 0
-  @max_retry 20
 
   def get_env(key, default \\ nil) do
     Application.get_env(:redix_cluster_remastered, key, default)
@@ -62,8 +61,7 @@ defmodule RedixCluster.Pool do
   def register_worker_connection(pool_name) do
     conn = pool_name |> Atom.to_string() |> String.split("-") |> Enum.at(0)
     table_name = Module.concat(conn, Pool)
-    restart_counter = :ets.update_counter(table_name, pool_name, 1)
-    unless restart_counter < @max_retry, do: stop_redis_pool(pool_name)
+    :ets.update_counter(table_name, pool_name, 1)
     :ok
   end
 
