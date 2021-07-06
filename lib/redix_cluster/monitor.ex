@@ -163,7 +163,7 @@ defmodule RedixCluster.Monitor do
 
   def start_link_redix(host, port) do
     :erlang.process_flag(:trap_exit, true)
-    result = Redix.start_link(host: host, port: port)
+    result = Redix.start_link(host: host, port: port, password: get_env(:password))
     :erlang.process_flag(:trap_exit, false)
     result
   end
